@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"gopkg.in/ini.v1"
 	"io/ioutil"
 	"log"
@@ -14,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
