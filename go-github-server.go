@@ -147,10 +147,17 @@ func runCommand(repoName string, rep Repo) {
 	}
 
 	cmd := exec.Command("zsh", script)
-	cmd.Env = append(cmd.Env, "WORK_PATH="+rep.Path, "REPOS="+repoName, "BRANCH="+rep.Branch)
+	cmd.Env = append(cmd.Env, "BRANCH="+Quote(rep.Branch), "WORK_PATH="+Quote(rep.Path), "REPOS="+Quote(repoName))
 	if 0 != len(rep.Key) {
-		cmd.Env = append(cmd.Env, fmt.Sprintf(`GIT_SSH_COMMAND="ssh -i %s"`, rep.Key))
+		key := rep.Key
+		if _, err := os.Stat(rep.Key); err != nil {
+			key = strings.Join([]string{os.Getenv("HOME"), ".ssh", rep.Key}, string(os.PathSeparator))
+		}
+
+		cmd.Env = append(cmd.Env, "GIT_SSH_COMMAND=ssh -v -i "+Quote(key))
 	}
+
+	log.Println(strings.Join(cmd.Env, " "))
 
 	data, err := cmd.CombinedOutput()
 
@@ -160,3 +167,4 @@ func runCommand(repoName string, rep Repo) {
 
 	log.Println(string(data))
 }
+
