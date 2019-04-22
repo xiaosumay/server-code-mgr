@@ -26,7 +26,7 @@ type Repo struct {
 
 var (
 	configPath   = flag.String("config", "", "Name of repo to create in authenticated user's GitHub account.")
-	SecretToken  = []byte("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+	SecretToken  string
 	repositories = make(map[string]Repo)
 	pattern      *regexp.Regexp
 )
@@ -97,7 +97,7 @@ func HandleFunc(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	mac := hmac.New(sha1.New, SecretToken)
+	mac := hmac.New(sha1.New, []byte(SecretToken))
 	_, _ = mac.Write(data)
 	expectedMAC := hex.EncodeToString(mac.Sum(nil))
 
@@ -150,6 +150,9 @@ func PushEvent(data []byte, writer http.ResponseWriter) {
 		}
 	} else {
 		log.Println(repoName + " 不存在！")
+
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("无效操作"))
 		return
 	}
 }
@@ -185,4 +188,3 @@ func runCommand(repoName string, rep Repo) {
 
 	log.Println(string(data))
 }
-

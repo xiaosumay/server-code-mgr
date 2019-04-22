@@ -11,6 +11,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/google/go-github/github"
 	"github.com/jessevdk/go-flags"
 	"golang.org/x/oauth2"
@@ -20,9 +21,11 @@ import (
 	"strconv"
 )
 
-const (
-	TOKEN = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-	Owner = "YYYYY"
+var (
+	Owner   string
+	TOKEN   string
+	Version string
+	SECRET  string
 )
 
 type CommandOptions struct {
@@ -73,6 +76,8 @@ type Options struct {
 	InviteOpts  InviteOptions  `group:"Invite Options"`
 	DevKeyOpts  DevKeyOptions  `group:"DeployKey Options"`
 	WebHookOpts WebHookOptions `group:"WebHook Options"`
+
+	Version bool `long:"version" description:"版本信息"`
 }
 
 func main() {
@@ -82,6 +87,11 @@ func main() {
 	_, err := parser.Parse()
 	if err != nil {
 		os.Exit(1)
+	}
+
+	if opts.Version {
+		fmt.Println(Version, TOKEN, SECRET)
+		os.Exit(0)
 	}
 
 	opts.CommonOpts.Token = DefaultValue(
@@ -293,8 +303,9 @@ func deployKey(opts Options) {
 		}
 
 		log.Println("删除DevKey成功！")
+	} else {
+		log.Fatalln("你需要指定一个 Command Options")
 	}
-
 }
 
 func webHook(opts Options) {
@@ -308,9 +319,9 @@ func webHook(opts Options) {
 		active := true
 		hookInfo := github.Hook{
 			Config: map[string]interface{}{
-				"url":          "http://" + opts.WebHookOpts.Ip + "/github/postreceive",
+				"url":          "http://" + opts.WebHookOpts.Ip + ":17293",
 				"content_type": "json",
-				"secret":       "X8dWqLS^6VT&Xy8wZlczvQIuWVyO^<",
+				"secret":       SECRET,
 				"insecure_ssl": "0",
 			},
 			Events: []string{"push"},
@@ -340,5 +351,7 @@ func webHook(opts Options) {
 		}
 
 		log.Println("删除hook成功!")
+	} else {
+		log.Fatalln("你需要指定一个 Command Options")
 	}
 }
