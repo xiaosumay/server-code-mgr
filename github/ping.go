@@ -1,8 +1,14 @@
-package main
+package github
 
-import "time"
+import (
+	"encoding/json"
+	"log"
+	"time"
 
-type PingPayload struct {
+	"github.com/xiaosumay/server-code-mgr/utils"
+)
+
+type pingPayload struct {
 	Zen    string `json:"zen"`
 	HookID int    `json:"hook_id"`
 	Hook   struct {
@@ -147,4 +153,24 @@ type PingPayload struct {
 		Type              string `json:"type"`
 		SiteAdmin         bool   `json:"site_admin"`
 	} `json:"sender"`
+}
+
+func PingEvent(data []byte) bool {
+	var ping pingPayload
+	err := json.Unmarshal(data, &ping)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+
+	repoName := ping.Repository.Name
+
+	log.Println(repoName, utils.Repositories)
+
+	if repo, ok := utils.Repositories[repoName]; ok {
+		go cloneRepos(ping.Repository.Name, ping.Repository.SSHURL, repo)
+		return true
+	}
+
+	return false
 }

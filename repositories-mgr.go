@@ -12,13 +12,15 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/google/go-github/github"
-	"github.com/jessevdk/go-flags"
-	"golang.org/x/oauth2"
 	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
+
+	"github.com/google/go-github/github"
+	"github.com/jessevdk/go-flags"
+	"github.com/xiaosumay/server-code-mgr/utils"
+	"golang.org/x/oauth2"
 )
 
 var (
@@ -80,6 +82,13 @@ type Options struct {
 	Version bool `long:"version" description:"版本信息"`
 }
 
+func DefaultValue(val, fallback string) string {
+	if val == "" {
+		return fallback
+	}
+	return val
+}
+
 func main() {
 
 	var opts Options
@@ -90,12 +99,12 @@ func main() {
 	}
 
 	if opts.Version {
-		fmt.Println(Version, TOKEN, SECRET)
+		fmt.Println(Version)
 		os.Exit(0)
 	}
 
 	opts.CommonOpts.Token = DefaultValue(
-		DefaultValue(
+		utils.DefaultValue(
 			opts.CommonOpts.Token,
 			os.Getenv("GITHUB_AUTH_TOKEN"),
 		),
@@ -141,6 +150,7 @@ func repositoriesDo(opts Options) {
 
 		if !options.Private {
 			log.Println("必须开启此项才能是创建私有仓库")
+			options.Private = true
 		}
 
 		r := &github.Repository{
@@ -164,7 +174,7 @@ func repositoriesDo(opts Options) {
 		}
 
 		for _, rep := range reps {
-			log.Printf("%10s: %s\n", rep.GetName(), rep.GetCloneURL())
+			log.Printf("%s: %s\n", rep.GetName(), rep.GetSSHURL())
 		}
 	} else if opts.CommandOpts.Delete {
 		_, err := client.Repositories.Delete(ctx, Owner, opts.CommonOpts.Name)
@@ -246,6 +256,7 @@ func deployKey(opts Options) {
 
 		if !options.ReadOnly {
 			log.Println("必须开启此项才是最安全的")
+			options.ReadOnly = true
 		}
 
 		if opts.CommonOpts.Name == "" {
