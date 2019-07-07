@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/xiaosumay/server-code-mgr/github"
-	. "github.com/xiaosumay/server-code-mgr/utils"
+	"github.com/xiaosumay/server-code-mgr/utils"
 )
 
 var (
@@ -30,7 +30,7 @@ func main() {
 	http.HandleFunc("/", HandleFunc)
 
 	for {
-		ParseConfig(*configPath)
+		utils.ParseConfig(*configPath)
 
 		err := http.ListenAndServe("0.0.0.0:17293", nil)
 		log.Println(err)
