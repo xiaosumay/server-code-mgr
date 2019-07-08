@@ -7,7 +7,7 @@
 // creating new repositoriesDo. It takes an auth token as
 // an enviroment variable and creates the new repo under
 // the account affiliated with that token.
-package main
+package utils
 
 import (
 	"context"
@@ -19,7 +19,6 @@ import (
 
 	"github.com/google/go-github/github"
 	"github.com/jessevdk/go-flags"
-	"github.com/xiaosumay/server-code-mgr/utils"
 	"golang.org/x/oauth2"
 )
 
@@ -82,12 +81,12 @@ type Options struct {
 	Version bool `long:"version" description:"版本信息"`
 }
 
-func DefaultValue(val, fallback string) string {
-	if val == "" {
-		return fallback
-	}
-	return val
-}
+// func DefaultValue(val, fallback string) string {
+// 	if val == "" {
+// 		return fallback
+// 	}
+// 	return val
+// }
 
 func main() {
 
@@ -104,7 +103,7 @@ func main() {
 	}
 
 	opts.CommonOpts.Token = DefaultValue(
-		utils.DefaultValue(
+		DefaultValue(
 			opts.CommonOpts.Token,
 			os.Getenv("GITHUB_AUTH_TOKEN"),
 		),
