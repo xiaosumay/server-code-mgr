@@ -12,3 +12,7 @@ require (
 	gopkg.in/ini.v1 v1.44.0
 	gopkg.in/src-d/go-git.v4 v4.12.0
 )
+
+replace golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45 => github.com/golang/oauth2 v0.0.0-20190604053449-0f29369cfe45
+
+replace golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4 => github.com/golang/crypto v0.0.0-20190701094942-4def268fd1a4

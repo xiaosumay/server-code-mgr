@@ -4,16 +4,15 @@
 // license that can be found in the LICENSE file.
 
 // The newrepo command utilizes go-github as a cli tool for
-// creating new repositoriesDo. It takes an auth token as
+// creating new repositoriesDo. It takes an auth Token as
 // an enviroment variable and creates the new repo under
-// the account affiliated with that token.
-package utils
+// the account affiliated with that Token.
+package main
 
 import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"strconv"
 
@@ -24,27 +23,28 @@ import (
 
 var (
 	Owner   string
-	TOKEN   string
-	Version string
-	SECRET  string
+	Token   string
+	version string
+	Secret  string
 )
 
 type CommandOptions struct {
-	Create bool `long:"add" description:"新建"`
-	List   bool `long:"list" description:"查看"`
-	Delete bool `long:"delete" description:"删除"`
+	Create bool `short:"a" long:"add" description:"新建"`
+	List   bool `short:"l" long:"list" description:"查看"`
+	Delete bool `short:"d" long:"delete" description:"删除"`
 }
 
 type ObjectOptions struct {
-	Repositories  bool `long:"repos" description:"仓库"`
-	Collaborators bool `long:"users" description:"合作者"`
+	Repositories  bool `long:"repo" description:"仓库"`
+	Collaborators bool `long:"user" description:"合作者"`
 	DeployKey     bool `long:"deploy" description:"服务器部署key"`
 	WebHook       bool `long:"hook" description:"更新钩子"`
 }
 
 type CommonOptions struct {
-	Name  string `long:"name" description:"仓库名称"`
 	Token string `long:"token" description:"账户Token"`
+	Owner string `long:"owner" description:"账户名"`
+	Name  string `long:"name" description:"仓库名称"`
 }
 
 type RepoOptions struct {
@@ -65,14 +65,15 @@ type DevKeyOptions struct {
 }
 
 type WebHookOptions struct {
-	Ip string `long:"ip" description:"更新钩子触发的服务器IP"`
-	Id int64  `long:"hook-id" description:"钩子的唯一ID"`
+	Secret string `long:"secret" description:"web hook Secret"`
+	Ip     string `long:"ip" description:"更新钩子触发的服务器IP"`
+	Id     int64  `long:"hook-id" description:"钩子的唯一ID"`
 }
 
 type Options struct {
+	CommonOpts  CommonOptions  `group:"Common Options"`
 	CommandOpts CommandOptions `group:"Command Options"`
 	ObjectOpts  ObjectOptions  `group:"Object Options"`
-	CommonOpts  CommonOptions  `group:"Common Options"`
 	RepoOpts    RepoOptions    `group:"Repositories Options"`
 	InviteOpts  InviteOptions  `group:"Invite Options"`
 	DevKeyOpts  DevKeyOptions  `group:"DeployKey Options"`
@@ -81,12 +82,18 @@ type Options struct {
 	Version bool `long:"version" description:"版本信息"`
 }
 
-// func DefaultValue(val, fallback string) string {
-// 	if val == "" {
-// 		return fallback
-// 	}
-// 	return val
-// }
+func DefaultValues(val string, fallback ...string) string {
+	if val == "" && len(fallback) > 0 {
+		return DefaultValues(fallback[0], fallback[1:]...)
+	}
+
+	return val
+}
+
+func fatalln(a ...interface{}) {
+	fmt.Println(a...)
+	os.Exit(1)
+}
 
 func main() {
 
@@ -98,20 +105,31 @@ func main() {
 	}
 
 	if opts.Version {
-		fmt.Println(Version)
+		fmt.Println(version)
 		os.Exit(0)
 	}
 
-	opts.CommonOpts.Token = DefaultValue(
-		DefaultValue(
-			opts.CommonOpts.Token,
-			os.Getenv("GITHUB_AUTH_TOKEN"),
-		),
-		TOKEN,
+	Token = DefaultValues(
+		opts.CommonOpts.Token,
+		os.Getenv("GITHUB_AUTH_TOKEN"),
+		Token,
 	)
 
-	if opts.CommonOpts.Token == "" {
-		log.Fatal("Unauthorized: No token present")
+	Owner = DefaultValues(
+		opts.CommonOpts.Owner,
+		os.Getenv("GITHUB_AUTH_OWNER"),
+		Owner,
+	)
+
+	Secret = DefaultValues(
+		opts.WebHookOpts.Secret,
+		os.Getenv("GITHUB_AUTH_SECRET"),
+		Secret,
+	)
+
+	if Token == "" || Owner == "" {
+		fmt.Println("Unauthorized: No Token present")
+		os.Exit(1)
 	}
 
 	if opts.ObjectOpts.Repositories {
@@ -123,7 +141,7 @@ func main() {
 	} else if opts.ObjectOpts.WebHook {
 		webHook(opts)
 	} else {
-		log.Fatalln("你需要指定一个 Object Options")
+		fatalln("你需要指定一个 Object Options")
 	}
 }
 
@@ -138,18 +156,17 @@ func getClient(token string) (*github.Client, context.Context) {
 
 func repositoriesDo(opts Options) {
 
-	client, ctx := getClient(opts.CommonOpts.Token)
+	client, ctx := getClient(Token)
 
 	if opts.CommandOpts.Create {
 		options := opts.RepoOpts
 
 		if opts.CommonOpts.Name == "" {
-			log.Fatal("No name: New repos must be given a name")
+			fatalln("No name: New repos must be given a name")
 		}
 
 		if !options.Private {
-			log.Println("必须开启此项才能是创建私有仓库")
-			options.Private = true
+			fmt.Println("必须开启 --private 此项才能是创建私有仓库")
 		}
 
 		r := &github.Repository{
@@ -159,43 +176,43 @@ func repositoriesDo(opts Options) {
 		}
 		repo, _, err := client.Repositories.Create(ctx, "", r)
 		if err != nil {
-			log.Fatal(err)
+			fatalln(err)
 		}
 
-		log.Printf("Successfully created new repo: %v\n", repo.GetSSHURL())
+		fmt.Printf("Successfully created new repo: %v\n", repo.GetSSHURL())
 	} else if opts.CommandOpts.List {
 		reps, resp, err := client.Repositories.List(ctx, "", &github.RepositoryListOptions{
 			Visibility: "all",
 		})
 
 		if err != nil || resp.StatusCode != 200 {
-			log.Fatal(err)
+			fatalln(err)
 		}
 
 		for _, rep := range reps {
-			log.Printf("%s: %s\n", rep.GetName(), rep.GetSSHURL())
+			fmt.Printf("%s: %s\n", rep.GetName(), rep.GetSSHURL())
 		}
 	} else if opts.CommandOpts.Delete {
 		_, err := client.Repositories.Delete(ctx, Owner, opts.CommonOpts.Name)
 
 		if err != nil {
-			log.Fatal(err)
+			fatalln(err)
 		}
 
-		log.Println("删除" + opts.CommonOpts.Name + "成功!")
+		fmt.Println("删除" + opts.CommonOpts.Name + "成功!")
 	} else {
-		log.Fatalln("你需要指定一个 Command Options")
+		fatalln("你需要指定一个 Command Options")
 	}
 }
 
 func collaborators(opts Options) {
-	client, ctx := getClient(opts.CommonOpts.Token)
+	client, ctx := getClient(Token)
 
 	if opts.CommandOpts.Create {
 		invite := opts.InviteOpts
 
 		if opts.CommonOpts.Name == "" {
-			log.Fatal("No name: New repos must be given a name")
+			fatalln("No name: New repos must be given a name")
 		}
 
 		_, err := client.Repositories.AddCollaborator(ctx, Owner,
@@ -206,13 +223,13 @@ func collaborators(opts Options) {
 			})
 
 		if err != nil {
-			log.Fatal(err)
+			fatalln(err)
 		}
 
-		log.Println("https://github.com/MLTechMy/" + opts.CommonOpts.Name + "/invitations")
+		fmt.Println("https://github.com/MLTechMy/" + opts.CommonOpts.Name + "/invitations")
 	} else if opts.CommandOpts.List {
 		if opts.CommonOpts.Name == "" {
-			log.Fatal("No name: New repos must be given a name")
+			fatalln("No name: New repos must be given a name")
 		}
 
 		users, _, err := client.Repositories.ListCollaborators(ctx, Owner,
@@ -222,44 +239,46 @@ func collaborators(opts Options) {
 			})
 
 		if err != nil {
-			log.Fatal(err)
+			fatalln(err)
 		}
 
 		for _, user := range users {
-			log.Printf("%10s: %s\n", user.GetLogin(), user.GetURL())
+			fmt.Printf("%s: %s\n", user.GetLogin(), user.GetURL())
 		}
+
 	} else if opts.CommandOpts.Delete {
 		if opts.CommonOpts.Name == "" {
-			log.Fatal("No name: New repos must be given a name")
+			fatalln("No name: New repos must be given a name")
 		}
 
 		_, err := client.Repositories.RemoveCollaborator(ctx, Owner,
 			opts.CommonOpts.Name,
-			opts.InviteOpts.GithubId)
+			opts.InviteOpts.GithubId,
+		)
 
 		if err != nil {
-			log.Fatal(err)
+			fatalln(err)
 		}
 
-		log.Println("删除合作者:" + opts.InviteOpts.GithubId)
+		fmt.Println("删除合作者:" + opts.InviteOpts.GithubId)
 	} else {
-		log.Fatalln("你需要指定一个 Command Options")
+		fatalln("你需要指定一个 Command Options")
 	}
 }
 
 func deployKey(opts Options) {
-	client, ctx := getClient(opts.CommonOpts.Token)
+	client, ctx := getClient(Token)
 
 	if opts.CommandOpts.Create {
 		options := opts.DevKeyOpts
 
 		if !options.ReadOnly {
-			log.Println("必须开启此项才是最安全的")
+			fmt.Println("必须开启 --read-only 此项才是最安全的")
 			options.ReadOnly = true
 		}
 
 		if opts.CommonOpts.Name == "" {
-			log.Fatal("No name: New repos must be given a name")
+			fatalln("No name: New repos must be given a name")
 		}
 
 		if _, ok := os.Stat(options.Key); ok == nil {
@@ -278,14 +297,14 @@ func deployKey(opts Options) {
 			})
 
 		if err != nil {
-			log.Fatal(err)
+			fatalln(err)
 		}
 
-		log.Printf("key[%d] %s install ok\n", + key.GetID(), key.GetTitle())
+		fmt.Printf("key[%d] %s install ok\n", + key.GetID(), key.GetTitle())
 	} else if opts.CommandOpts.List {
 
 		if opts.CommonOpts.Name == "" {
-			log.Fatal("No name: New repos must be given a name")
+			fatalln("No name: New repos must be given a name")
 		}
 
 		keys, _, err := client.Repositories.ListKeys(ctx, Owner,
@@ -294,35 +313,35 @@ func deployKey(opts Options) {
 		)
 
 		if err != nil {
-			log.Fatal(err)
+			fatalln(err)
 		}
 
 		for _, key := range keys {
-			log.Printf("[%d]: %s\n", key.GetID(), key.GetTitle())
+			fmt.Printf("[%d]: %s\n", key.GetID(), key.GetTitle())
 		}
 
 	} else if opts.CommandOpts.Delete {
 		if opts.CommonOpts.Name == "" {
-			log.Fatal("No name: New repos must be given a name")
+			fatalln("No name: New repos must be given a name")
 		}
 
 		_, err := client.Repositories.DeleteKey(ctx, Owner, opts.CommonOpts.Name, opts.DevKeyOpts.Id)
 
 		if err != nil {
-			log.Fatal(err)
+			fatalln(err)
 		}
 
-		log.Println("删除DevKey成功！")
+		fmt.Println("删除DevKey成功！")
 	} else {
-		log.Fatalln("你需要指定一个 Command Options")
+		fatalln("你需要指定一个 Command Options")
 	}
 }
 
 func webHook(opts Options) {
-	client, ctx := getClient(opts.CommonOpts.Token)
+	client, ctx := getClient(Token)
 
 	if opts.CommonOpts.Name == "" {
-		log.Fatal("No name: New repos must be given a name")
+		fatalln("No name: New repos must be given a name")
 	}
 
 	if opts.CommandOpts.Create {
@@ -331,7 +350,7 @@ func webHook(opts Options) {
 			Config: map[string]interface{}{
 				"url":          "http://" + opts.WebHookOpts.Ip + ":17293",
 				"content_type": "json",
-				"secret":       SECRET,
+				"Secret":       Secret,
 				"insecure_ssl": "0",
 			},
 			Events: []string{"push"},
@@ -340,28 +359,28 @@ func webHook(opts Options) {
 		hook, _, err := client.Repositories.CreateHook(ctx, Owner, opts.CommonOpts.Name, &hookInfo)
 
 		if err != nil {
-			log.Fatal(err)
+			fatalln(err)
 		}
 
-		log.Println("hook 安装: " + strconv.FormatBool(*hook.Active))
+		fmt.Println("hook 安装: " + strconv.FormatBool(*hook.Active))
 	} else if opts.CommandOpts.List {
 		hooks, _, err := client.Repositories.ListHooks(ctx, Owner, opts.CommonOpts.Name, &github.ListOptions{})
 		if err != nil {
-			log.Fatal(err)
+			fatalln(err)
 		}
 
 		for _, hook := range hooks {
-			log.Printf("%10d, %s\n", hook.GetID(), hook.Config["url"])
+			fmt.Printf("%10d, %s\n", hook.GetID(), hook.Config["url"])
 		}
 	} else if opts.CommandOpts.Delete {
 		_, err := client.Repositories.DeleteHook(ctx, Owner, opts.CommonOpts.Name, opts.WebHookOpts.Id)
 
 		if err != nil {
-			log.Fatal(err)
+			fatalln(err)
 		}
 
-		log.Println("删除hook成功!")
+		fmt.Println("删除hook成功!")
 	} else {
-		log.Fatalln("你需要指定一个 Command Options")
+		fatalln("你需要指定一个 Command Options")
 	}
 }
