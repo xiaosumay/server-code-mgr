@@ -3,14 +3,9 @@ package github
 import (
 	"encoding/json"
 	"log"
-	"os"
-	"os/exec"
-	"strings"
 	"time"
 
-	. "github.com/xiaosumay/server-code-mgr/utils"
-	"gopkg.in/src-d/go-git.v4"
-	"gopkg.in/src-d/go-git.v4/plumbing"
+	"github.com/xiaosumay/server-code-mgr/utils"
 )
 
 type pushPayload struct {
@@ -203,10 +198,10 @@ func PushEvent(data []byte) bool {
 
 	repoName := push.Repository.Name
 
-	if repo, ok := Repositories[repoName]; ok {
-		ref := "refs/heads/" + DefaultValue(repo.Branch, "master")
+	if repo, ok := utils.Repositories[repoName]; ok {
+		ref := "refs/heads/" + repo.Branch
 		if push.Ref == ref {
-			go doReposUpdate(repoName, repo)
+			go DoReposUpdate(repoName, repo)
 			return true
 		}
 	}
@@ -215,122 +210,5 @@ func PushEvent(data []byte) bool {
 	return false
 }
 
-func runCommand(repoName string, rep Repo) bool {
-	if _, err := os.Stat(rep.Script); err != nil {
-		log.Println(err)
-		return false
-	}
 
-	cmd := exec.Command("bash", rep.Script)
-	cmd.Env = append(cmd.Env, "BRANCH="+Quote(rep.Branch), "WORK_PATH="+Quote(rep.Path), "REPOS="+Quote(repoName))
-	if 0 != len(rep.Key) {
-		key := rep.Key
-		if _, err := os.Stat(rep.Key); err != nil {
-			key = strings.Join([]string{os.Getenv("HOME"), ".ssh", rep.Key}, string(os.PathSeparator))
-		}
 
-		cmd.Env = append(cmd.Env, "GIT_SSH_COMMAND=ssh -v -i "+Quote(key))
-	}
-
-	log.Println(strings.Join(cmd.Env, " "))
-
-	data, err := cmd.CombinedOutput()
-
-	if err != nil {
-		log.Println(err)
-		return false
-	}
-
-	log.Println(string(data))
-	return true
-}
-
-func doReposUpdate(repoName string, rep Repo) {
-
-	for {
-		if len(rep.Script) == 0 {
-			break
-		}
-
-		log.Printf("启用自定义脚本: %s\n", rep.Script)
-
-		if runCommand(repoName, rep) {
-			return
-		}
-
-		break
-	}
-
-	localPath := DefaultValue(rep.Path, "/home/wwwroot/"+repoName)
-
-	if _, err := os.Stat(localPath); err != nil {
-		cloneRepos(repoName, rep.RemotePath, rep)
-	}
-
-	r, err := git.PlainOpenWithOptions(localPath, &git.PlainOpenOptions{
-		DetectDotGit: false,
-	})
-
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	remoteRef, err := r.Reference(
-		plumbing.NewRemoteReferenceName("origin", DefaultValue(rep.Branch, "master")),
-		true,
-	)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	localRef, err := r.Reference(plumbing.ReferenceName("HEAD"), true)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	log.Println(remoteRef)
-	log.Println(localRef)
-
-	if remoteRef.Hash() == localRef.Hash() {
-		log.Println("已经是最新的了！")
-		return
-	}
-
-	auth, err := getAuth(rep.Key)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	err = r.Fetch(&git.FetchOptions{
-		Auth:     auth,
-		Force:    true,
-		Progress: os.Stdout,
-		Tags:     git.AllTags,
-	})
-	if err != nil && err != git.NoErrAlreadyUpToDate {
-		log.Println(err)
-		return
-	}
-
-	log.Println("强制拉去完成")
-
-	w, err := r.Worktree()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	err = w.Reset(&git.ResetOptions{
-		Commit: remoteRef.Hash(),
-	})
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	log.Println("更新完成")
-}

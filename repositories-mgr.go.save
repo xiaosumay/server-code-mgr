@@ -68,6 +68,7 @@ type WebHookOptions struct {
 	Secret string `long:"secret" description:"web hook Secret"`
 	Ip     string `long:"ip" description:"更新钩子触发的服务器IP"`
 	Id     int64  `long:"hook-id" description:"钩子的唯一ID"`
+	Test   bool   `long:"test" description:"触发hook"`
 }
 
 type Options struct {
@@ -105,7 +106,7 @@ func main() {
 	}
 
 	if opts.Version {
-		fmt.Println(version)
+		fmt.Println(version, Token)
 		os.Exit(0)
 	}
 
@@ -350,7 +351,7 @@ func webHook(opts Options) {
 			Config: map[string]interface{}{
 				"url":          "http://" + opts.WebHookOpts.Ip + ":17293",
 				"content_type": "json",
-				"Secret":       Secret,
+				"secret":       Secret,
 				"insecure_ssl": "0",
 			},
 			Events: []string{"push"},
@@ -377,9 +378,19 @@ func webHook(opts Options) {
 
 		if err != nil {
 			fatalln(err)
+		} else {
+			fmt.Println("删除hook成功!")
 		}
 
-		fmt.Println("删除hook成功!")
+	} else if opts.WebHookOpts.Test {
+		_, err := client.Repositories.TestHook(ctx, Owner, opts.CommonOpts.Name, opts.WebHookOpts.Id)
+
+		if err != nil {
+			fatalln(err)
+		} else {
+			fmt.Println("测试hook成功!")
+		}
+
 	} else {
 		fatalln("你需要指定一个 Command Options")
 	}

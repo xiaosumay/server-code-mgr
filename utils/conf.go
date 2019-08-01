@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -32,6 +33,11 @@ func ParseConfig(configPath string) {
 		if err != nil {
 			log.Fatalf("配置文件出错3: %v\n", err)
 		}
+
+		val.Path = DefaultValue(val.Path, fmt.Sprintf("/var/www/html/%s", section.Name()))
+		val.RemotePath = DefaultValue(val.RemotePath, fmt.Sprintf("git@github.com/MLTechMy/%s.git", section.Name()))
+		val.Branch = DefaultValue(val.Branch, "master")
+		val.Key = DefaultValue(val.Key, fmt.Sprintf("/var/www/.ssh/%s", section.Name()))
 
 		Repositories[section.Name()] = *val
 	}

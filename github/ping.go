@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/xiaosumay/server-code-mgr/utils"
+	. "github.com/xiaosumay/server-code-mgr/utils"
 )
 
 type pingPayload struct {
@@ -165,10 +165,8 @@ func PingEvent(data []byte) bool {
 
 	repoName := ping.Repository.Name
 
-	log.Println(repoName, utils.Repositories)
-
-	if repo, ok := utils.Repositories[repoName]; ok {
-		go cloneRepos(ping.Repository.Name, ping.Repository.SSHURL, repo)
+	if repo, ok := Repositories[repoName]; ok {
+		go CloneRepos(repoName, repo)
 		return true
 	}
 

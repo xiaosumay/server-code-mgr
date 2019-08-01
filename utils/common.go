@@ -13,8 +13,9 @@ func DefaultValue(val, fallback string) string {
 }
 
 var (
-	pattern *regexp.Regexp
+	pattern      *regexp.Regexp
 	Repositories = make(map[string]Repo)
+	Debug        = false
 )
 
 func init() {
